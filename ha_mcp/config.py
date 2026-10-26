@@ -22,11 +22,63 @@ class InstanceConfig:
 
 
 @dataclass
+class FeatureFlags:
+    """Feature gates controlling which tools the server registers."""
+
+    readonly: bool = True
+    enable_restart: bool = False
+    enable_supervisor: bool = False
+
+
+@dataclass
 class AppConfig:
     """Resolved configuration for all Home Assistant instances."""
 
     instances: list[InstanceConfig]
     default: str
+
+
+_TRUTHY = frozenset({"1", "true", "yes", "on"})
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    """
+    Read a boolean feature flag from the environment.
+
+    Args:
+        name: Environment variable name.
+        default: Value returned when the variable is unset.
+
+    Returns:
+        True when the variable is set to a truthy token (1, true, yes, on;
+        case-insensitive), the ``default`` when unset, otherwise False.
+    """
+
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in _TRUTHY
+
+
+def load_flags() -> FeatureFlags:
+    """
+    Resolve feature gates from the environment.
+
+    Reads HA_READONLY (default true), HA_ENABLE_RESTART (default false) and
+    HA_ENABLE_SUPERVISOR (default false). Read-only is the default: the server
+    registers no write/destructive tools unless HA_READONLY is explicitly set to
+    a falsy value. Supervisor tools are never registered unless
+    HA_ENABLE_SUPERVISOR is explicitly true.
+
+    Returns:
+        A FeatureFlags instance reflecting the current environment.
+    """
+
+    return FeatureFlags(
+        readonly=_env_bool("HA_READONLY", True),
+        enable_restart=_env_bool("HA_ENABLE_RESTART", False),
+        enable_supervisor=_env_bool("HA_ENABLE_SUPERVISOR", False),
+    )
 
 
 def load_config() -> AppConfig:
@@ -111,4 +163,6 @@ def _load_from_file(path: Path) -> AppConfig:
         InstanceConfig(name=i["name"], url=i["url"], token=i["token"])
         for i in raw_instances
     ]
-    return AppConfig(instances=instances, default=data.get("default", instances[0].name))
+    return AppConfig(
+        instances=instances, default=data.get("default", instances[0].name)
+    )
