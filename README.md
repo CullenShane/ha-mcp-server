@@ -13,6 +13,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for Hom
 - [Configuration](#configuration)
   - [Single instance](#single-instance)
   - [Multiple instances](#multiple-instances)
+- [Read-only Mode & Feature Gating](#read-only-mode--feature-gating)
 - [Running the Server](#running-the-server)
   - [Directly with uv](#directly-with-uv)
   - [With Docker](#with-docker)
@@ -25,6 +26,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for Hom
   - [Add-ons (Supervisor only)](#add-ons-supervisor-only)
   - [Logs](#logs)
   - [Automations, Scripts & Scenes](#automations-scripts--scenes)
+  - [Upgrade Readiness](#upgrade-readiness)
   - [System & Configuration](#system--configuration)
   - [Notifications](#notifications)
   - [Input Helpers & Timers](#input-helpers--timers)
@@ -153,8 +155,36 @@ The server resolves configuration in this order:
 | `TRANSPORT` | no       | `stdio`   | Transport mode: `stdio`, `sse`, or `streamable-http` |
 | `PORT`      | no       | `8765`    | HTTP port when `TRANSPORT` is not `stdio` |
 | `LOG_LEVEL` | no       | `WARNING` | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `HA_READONLY` | no | `true` | When `true`, no write/destructive tools are registered (read-only mode) |
+| `HA_ENABLE_RESTART` | no | `false` | Exposes the HA Core restart tools (`restart_core`, `restart_ha`); requires `HA_READONLY=false` |
+| `HA_ENABLE_SUPERVISOR` | no | `false` | Registers Supervisor-backed tools (add-ons, OS/Supervisor/Core/host info, updates, backups, logs) |
 
 \* Not required when `HA_CONFIG` is set or when a `ha-mcp.yaml` file is present in the working directory.
+
+---
+
+## Read-only Mode & Feature Gating
+
+This fork is **read-only by default** and is intended to run against a Home Assistant **Container** install (plain Docker, no Supervisor). Behavior is controlled by three environment variables, parsed case-insensitively (`1`/`true`/`yes`/`on` = true, anything else = false):
+
+- **`HA_READONLY`** (default `true`): when `true`, no write/destructive tools are registered — no `set_entity_state`, `call_service`, `fire_event`, dashboard create/update/delete, `trigger_automation`, `run_script`, `activate_scene`, `set_input_*`, `*_timer`, `reload_config_entry`, `send_notification`, or persistent-notification create/dismiss.
+- **`HA_ENABLE_RESTART`** (default `false`): exposes the HA Core restart tools (`restart_core`, `restart_ha`). Requires `HA_READONLY=false`.
+- **`HA_ENABLE_SUPERVISOR`** (default `false`): registers the Supervisor-backed tools (add-ons, OS/Supervisor/Core/host info, updates, backups, and Supervisor/Core/host/multicast logs). These call `/api/hassio/*`, which a Container install does not expose — read tools may work, but write tools (install/update/start/stop add-on, `update_core`/`update_supervisor`/`update_os`, `create_backup`) will fail.
+
+**How the flags combine:**
+
+- Writes require `HA_READONLY=false`.
+- Restart tools require `HA_ENABLE_RESTART=true` (and `HA_READONLY=false`).
+- Supervisor tools require `HA_ENABLE_SUPERVISOR=true`; Supervisor write tools additionally require `HA_READONLY=false`.
+
+**Tool counts by mode:**
+
+| Mode | Tools |
+|---|---|
+| Read-only (default) | 32 |
+| Read-write (`HA_READONLY=false`) | 57 |
+| Read-only + Supervisor reads (`HA_ENABLE_SUPERVISOR=true`) | 45 |
+| All flags on | 84 |
 
 ---
 
@@ -430,6 +460,17 @@ After editing the config, restart Claude Code or run `/mcp` to reload servers.
 | `list_scenes` | List all scenes |
 | `activate_scene` | Activate a scene |
 
+### Upgrade Readiness
+
+| Tool | Description |
+|---|---|
+| `get_repairs_issues` | List open repair issues (filter on `breaks_in_ha_version` for upgrade readiness). `include_dismissed` arg (default `false`) |
+| `get_repairs_issue_detail` | Full detail/translation text for a single repair issue by `issue_id` |
+| `get_core_version` | Get the running core `version` (authoritative running-version check) |
+| `list_loaded_integrations` | List all loaded integrations as `{domain, title, state, source}`, de-duplicated and sorted by domain |
+| `get_ha_log` | Get filtered core log lines. Args: `tail` (default `100`), `min_level` (`DEBUG`/`INFO`/`WARNING`/`ERROR`, default `WARNING`) |
+| `validate_config` | Validate the current HA config: `{result: "valid" \| "invalid", errors: [...]}`. Pre-deploy gate |
+
 ### System & Configuration
 
 | Tool | Description |
@@ -437,6 +478,7 @@ After editing the config, restart Claude Code or run `/mcp` to reload servers.
 | `get_ha_config` | Get HA core configuration (version, location, units, etc.) |
 | `check_config` | Validate YAML configuration files |
 | `restart_ha` | Restart the Home Assistant Core process |
+| `restart_core` | Restart the HA Core process via the Core REST API. Requires `HA_ENABLE_RESTART=true` and `HA_READONLY=false` |
 | `get_supervisor_info` | Get Supervisor version and update status |
 | `get_core_info` | Get Core process info via Supervisor |
 | `get_host_info` | Get host OS info (CPU, memory, hostname) |
@@ -487,6 +529,8 @@ After editing the config, restart Claude Code or run `/mcp` to reload servers.
 ## Notes on Supervisor Tools
 
 Tools in the **Add-ons**, **Logs** (except `get_error_log`), and **System** (update/backup) categories use the Supervisor API (`/api/hassio/`). These are only available on:
+
+> These tools are registered only when `HA_ENABLE_SUPERVISOR=true` (write tools additionally require `HA_READONLY=false`).
 
 - **Home Assistant OS** (the recommended full installation on a dedicated device)
 - **Home Assistant Supervised** (manual installation on a generic Linux system)
