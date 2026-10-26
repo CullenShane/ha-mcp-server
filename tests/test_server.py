@@ -9,8 +9,21 @@ from unittest.mock import MagicMock, patch
 from mcp.server.fastmcp import FastMCP
 import pytest
 
-from ha_mcp.config import AppConfig, InstanceConfig, load_config
+from ha_mcp.config import (
+    AppConfig,
+    FeatureFlags,
+    InstanceConfig,
+    load_config,
+    load_flags,
+)
 from ha_mcp.server import create_server, main
+
+
+def _tool_names(flags: FeatureFlags) -> set[str]:
+    """Return the set of tool names registered for the given feature flags."""
+
+    server = create_server(flags=flags)
+    return {t.name for t in server._tool_manager.list_tools()}
 
 
 def test_load_config_missing_url(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -97,11 +110,13 @@ def test_load_config_from_json_file(
 
     json_file = tmp_path / "ha-mcp.json"
     json_file.write_text(
-        json.dumps({
-            "instances": [
-                {"name": "home", "url": "http://home.local:8123", "token": "tok1"}
-            ]
-        })
+        json.dumps(
+            {
+                "instances": [
+                    {"name": "home", "url": "http://home.local:8123", "token": "tok1"}
+                ]
+            }
+        )
     )
     monkeypatch.setenv("HA_CONFIG", str(json_file))
 
@@ -132,15 +147,73 @@ def test_load_config_empty_instances_raises(
         load_config()
 
 
-def test_create_server_returns_fastmcp(monkeypatch: pytest.MonkeyPatch) -> None:
-    """create_server returns a FastMCP instance with all tools registered."""
+def test_create_server_readonly_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """create_server defaults to read-only: only CORE_READ tools are registered."""
 
     monkeypatch.setenv("HA_URL", "http://ha.local:8123")
     monkeypatch.setenv("HA_TOKEN", "test-token")
+    monkeypatch.delenv("HA_READONLY", raising=False)
+    monkeypatch.delenv("HA_ENABLE_RESTART", raising=False)
+    monkeypatch.delenv("HA_ENABLE_SUPERVISOR", raising=False)
     server = create_server()
     assert isinstance(server, FastMCP)
-    tool_names = {t.name for t in server._tool_manager.list_tools()}
-    assert len(tool_names) == 77
+    names = {t.name for t in server._tool_manager.list_tools()}
+    assert len(names) == 32
+    assert "get_repairs_issues" in names
+    assert "get_core_version" in names
+    assert "validate_config" in names
+    assert "set_entity_state" not in names
+    assert "call_service" not in names
+    assert "get_supervisor_info" not in names
+    assert "restart_core" not in names
+    assert "restart_ha" not in names
+
+
+def test_create_server_readwrite_no_supervisor() -> None:
+    """HA_READONLY=false exposes Core write tools, restarts stay gated."""
+
+    names = _tool_names(FeatureFlags(readonly=False))
+    assert len(names) == 57
+    assert "set_entity_state" in names
+    assert "call_service" in names
+    assert "fire_event" in names
+    assert "reload_config_entry" in names
+    assert "create_dashboard" in names
+    assert "send_notification" in names
+    assert "restart_core" not in names
+    assert "restart_ha" not in names
+    assert "get_supervisor_info" not in names
+
+
+def test_create_server_supervisor_reads_only() -> None:
+    """HA_ENABLE_SUPERVISOR with read-only registers supervisor reads, no writes."""
+
+    names = _tool_names(FeatureFlags(readonly=True, enable_supervisor=True))
+    assert len(names) == 45
+    assert "get_supervisor_info" in names
+    assert "list_backups" in names
+    assert "list_addons" in names
+    assert "get_supervisor_logs" in names
+    assert "update_core" not in names
+    assert "create_backup" not in names
+    assert "install_addon" not in names
+    assert "restart_core" not in names
+
+
+def test_create_server_all_enabled() -> None:
+    """All flags on registers the full upstream surface plus the new fork tools."""
+
+    names = _tool_names(
+        FeatureFlags(readonly=False, enable_restart=True, enable_supervisor=True)
+    )
+    assert len(names) == 84
+    assert "restart_core" in names
+    assert "restart_ha" in names
+    assert "get_supervisor_info" in names
+    assert "update_core" in names
+    assert "install_addon" in names
+    assert "get_repairs_issues" in names
+    assert "restart_core" in names
 
 
 def test_main_calls_run_stdio(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -174,3 +247,40 @@ def test_main_rejects_invalid_transport(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("TRANSPORT", "bogus")
     with pytest.raises(ValueError, match="Invalid TRANSPORT"):
         main()
+
+
+def test_load_flags_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    """load_flags defaults to read-only with restart and supervisor disabled."""
+
+    monkeypatch.delenv("HA_READONLY", raising=False)
+    monkeypatch.delenv("HA_ENABLE_RESTART", raising=False)
+    monkeypatch.delenv("HA_ENABLE_SUPERVISOR", raising=False)
+    flags = load_flags()
+    assert flags == FeatureFlags(
+        readonly=True,
+        enable_restart=False,
+        enable_supervisor=False,
+    )
+
+
+@pytest.mark.parametrize("value", ["false", "0", "no", "off", "OFF"])
+def test_load_flags_readonly_falsy(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    """HA_READONLY with a falsy token disables read-only (enables writes)."""
+
+    monkeypatch.setenv("HA_READONLY", value)
+    assert load_flags().readonly is False
+
+
+@pytest.mark.parametrize("value", ["true", "1", "yes", "on", "TRUE"])
+def test_load_flags_restart_truthy(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    """HA_ENABLE_RESTART with a truthy token enables the restart tools."""
+
+    monkeypatch.setenv("HA_ENABLE_RESTART", value)
+    assert load_flags().enable_restart is True
+
+
+def test_load_flags_supervisor_truthy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """HA_ENABLE_SUPERVISOR with a truthy token enables Supervisor tools."""
+
+    monkeypatch.setenv("HA_ENABLE_SUPERVISOR", "yes")
+    assert load_flags().enable_supervisor is True
