@@ -7,18 +7,23 @@ from typing import TYPE_CHECKING
 from mcp.server.fastmcp import Context
 from mcp.types import ToolAnnotations
 
+from ha_mcp.tools.gating import DEFAULT_FLAGS, ToolKind, make_registrar
+
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
     from ha_mcp.client import HomeAssistantClient
+    from ha_mcp.config import FeatureFlags
 
 _SUPERVISOR_PREFIX = "/api/hassio"
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
     """Register all log-access tools on the MCP server."""
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    tool = make_registrar(mcp, flags)
+
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_error_log(
         ctx: Context,
         instance: str = "",
@@ -39,7 +44,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get("/api/error_log")
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_supervisor_logs(
         ctx: Context,
         instance: str = "",
@@ -62,7 +67,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get(f"{_SUPERVISOR_PREFIX}/supervisor/logs")
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_core_logs(
         ctx: Context,
         instance: str = "",
@@ -85,7 +90,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get(f"{_SUPERVISOR_PREFIX}/core/logs")
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_host_logs(
         ctx: Context,
         instance: str = "",
@@ -108,7 +113,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get(f"{_SUPERVISOR_PREFIX}/host/logs")
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_multicast_logs(
         ctx: Context,
         instance: str = "",

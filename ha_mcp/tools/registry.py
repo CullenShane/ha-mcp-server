@@ -7,16 +7,21 @@ from typing import TYPE_CHECKING, Any
 from mcp.server.fastmcp import Context
 from mcp.types import ToolAnnotations
 
+from ha_mcp.tools.gating import DEFAULT_FLAGS, ToolKind, make_registrar
+
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
     from ha_mcp.client import HomeAssistantClient
+    from ha_mcp.config import FeatureFlags
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
     """Register all registry tools on the MCP server."""
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    tool = make_registrar(mcp, flags)
+
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_device_registry(
         ctx: Context,
         instance: str = "",
@@ -54,7 +59,7 @@ def register(mcp: FastMCP) -> None:
             else response
         )
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_config_entries(
         ctx: Context,
         instance: str = "",
@@ -82,7 +87,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get("/api/config/config_entries/entry")
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def reload_config_entry(
         ctx: Context,
         entry_id: str,

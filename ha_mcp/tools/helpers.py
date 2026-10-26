@@ -13,10 +13,13 @@ from typing import TYPE_CHECKING, Any
 from mcp.server.fastmcp import Context
 from mcp.types import ToolAnnotations
 
+from ha_mcp.tools.gating import DEFAULT_FLAGS, ToolKind, make_registrar
+
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
     from ha_mcp.client import HomeAssistantClient
+    from ha_mcp.config import FeatureFlags
 
 _HELPER_DOMAINS = frozenset(
     {
@@ -30,10 +33,12 @@ _HELPER_DOMAINS = frozenset(
 )
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
     """Register all input helper and timer tools on the MCP server."""
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    tool = make_registrar(mcp, flags)
+
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_input_helpers(
         ctx: Context,
         domain: str | None = None,
@@ -66,7 +71,7 @@ def register(mcp: FastMCP) -> None:
 
         return [s for s in states if s["entity_id"].split(".")[0] in _HELPER_DOMAINS]
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def set_input_boolean(
         ctx: Context,
         entity_id: str,
@@ -102,7 +107,7 @@ def register(mcp: FastMCP) -> None:
             {"entity_id": entity_id},
         )
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def set_input_number(
         ctx: Context,
         entity_id: str,
@@ -141,7 +146,7 @@ def register(mcp: FastMCP) -> None:
             {"entity_id": entity_id, "value": value},
         )
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def set_input_select(
         ctx: Context,
         entity_id: str,
@@ -180,7 +185,7 @@ def register(mcp: FastMCP) -> None:
             {"entity_id": entity_id, "option": option},
         )
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def set_input_text(
         ctx: Context,
         entity_id: str,
@@ -212,7 +217,7 @@ def register(mcp: FastMCP) -> None:
             {"entity_id": entity_id, "value": value},
         )
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def set_input_datetime(
         ctx: Context,
         entity_id: str,
@@ -265,7 +270,7 @@ def register(mcp: FastMCP) -> None:
             "/api/services/input_datetime/set_datetime", payload
         )
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def start_timer(
         ctx: Context,
         entity_id: str,
@@ -298,7 +303,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = lifespan.clients[instance or lifespan.default_instance]
         return await client.post("/api/services/timer/start", payload)
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def pause_timer(
         ctx: Context,
         entity_id: str,
@@ -325,7 +330,7 @@ def register(mcp: FastMCP) -> None:
             "/api/services/timer/pause", {"entity_id": entity_id}
         )
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def cancel_timer(
         ctx: Context,
         entity_id: str,

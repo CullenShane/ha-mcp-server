@@ -7,16 +7,21 @@ from typing import TYPE_CHECKING, Any
 from mcp.server.fastmcp import Context
 from mcp.types import ToolAnnotations
 
+from ha_mcp.tools.gating import DEFAULT_FLAGS, ToolKind, make_registrar
+
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
     from ha_mcp.client import HomeAssistantClient
+    from ha_mcp.config import FeatureFlags
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
     """Register all notification tools on the MCP server."""
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    tool = make_registrar(mcp, flags)
+
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_notification_services(
         ctx: Context,
         instance: str = "",
@@ -50,7 +55,7 @@ def register(mcp: FastMCP) -> None:
 
         return []
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def send_notification(
         ctx: Context,
         message: str,
@@ -99,7 +104,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = lifespan.clients[instance or lifespan.default_instance]
         return await client.post(f"/api/services/notify/{service}", payload)
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_persistent_notifications(
         ctx: Context,
         instance: str = "",
@@ -128,7 +133,7 @@ def register(mcp: FastMCP) -> None:
             s for s in states if s["entity_id"].startswith("persistent_notification.")
         ]
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def create_persistent_notification(
         ctx: Context,
         message: str,
@@ -168,7 +173,7 @@ def register(mcp: FastMCP) -> None:
             "/api/services/persistent_notification/create", payload
         )
 
-    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
     async def dismiss_persistent_notification(
         ctx: Context,
         notification_id: str,

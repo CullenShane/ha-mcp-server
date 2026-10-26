@@ -9,11 +9,13 @@ from mcp.server.fastmcp import Context
 from mcp.types import ToolAnnotations
 
 from ha_mcp.client import HomeAssistantError
+from ha_mcp.tools.gating import DEFAULT_FLAGS, ToolKind, make_registrar
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
     from ha_mcp.client import HomeAssistantClient
+    from ha_mcp.config import FeatureFlags
 
 # Jinja2 template that returns every entity→area mapping as a JSON list.
 # Used by both list_devices and list_entity_registry.
@@ -61,10 +63,12 @@ def _parse_template_json(result: Any) -> list[dict[str, Any]]:
         ) from exc
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
     """Register all entity and service tools on the MCP server."""
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    tool = make_registrar(mcp, flags)
+
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_entities(
         ctx: Context,
         domain: str | None = None,
@@ -98,7 +102,7 @@ def register(mcp: FastMCP) -> None:
 
         return [s for s in states if s["entity_id"].startswith(f"{domain}.")]
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_entity(
         ctx: Context,
         entity_id: str,
@@ -124,7 +128,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get(f"/api/states/{entity_id}")
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def set_entity_state(
         ctx: Context,
         entity_id: str,
@@ -162,7 +166,7 @@ def register(mcp: FastMCP) -> None:
             {"state": state, "attributes": attributes or {}},
         )
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def call_service(
         ctx: Context,
         domain: str,
@@ -199,7 +203,7 @@ def register(mcp: FastMCP) -> None:
             service_data or {},
         )
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def search_entities(
         ctx: Context,
         query: str,
@@ -242,7 +246,7 @@ def register(mcp: FastMCP) -> None:
 
         return results
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_services(
         ctx: Context,
         instance: str = "",
@@ -267,7 +271,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = lifespan.clients[instance or lifespan.default_instance]
         return await client.get("/api/services")
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_areas(
         ctx: Context,
         instance: str = "",
@@ -302,7 +306,7 @@ def register(mcp: FastMCP) -> None:
         result = await client.post("/api/template", {"template": template})
         return _parse_template_json(result)
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_devices(
         ctx: Context,
         instance: str = "",
@@ -350,7 +354,7 @@ def register(mcp: FastMCP) -> None:
             for state in states
         ]
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_entity_registry(
         ctx: Context,
         instance: str = "",
@@ -396,7 +400,7 @@ def register(mcp: FastMCP) -> None:
             for entry in area_entries
         ]
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_entity_history(
         ctx: Context,
         entity_id: str,
@@ -438,7 +442,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = lifespan.clients[instance or lifespan.default_instance]
         return await client.get(path, params=params)
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_logbook(
         ctx: Context,
         entity_id: str | None = None,
@@ -480,7 +484,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = lifespan.clients[instance or lifespan.default_instance]
         return await client.get(path, params=params or None)
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def render_template(
         ctx: Context,
         template: str,
@@ -509,7 +513,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = lifespan.clients[instance or lifespan.default_instance]
         return await client.post("/api/template", {"template": template})
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def fire_event(
         ctx: Context,
         event_type: str,

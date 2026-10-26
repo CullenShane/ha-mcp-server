@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Literal
 from mcp.server.fastmcp import FastMCP
 
 from ha_mcp.client import HomeAssistantClient
-from ha_mcp.config import load_config
+from ha_mcp.config import FeatureFlags, load_config, load_flags
 from ha_mcp.tools import (
     addons,
     automations,
@@ -43,6 +43,7 @@ from ha_mcp.tools import (
     logs,
     notifications,
     registry,
+    repairs,
     system,
 )
 
@@ -85,16 +86,23 @@ async def app_lifespan(app: FastMCP) -> AsyncIterator[AppState]:
         yield AppState(clients=clients, default_instance=config.default)
 
 
-def create_server(port: int = 8000) -> FastMCP:
+def create_server(
+    port: int = 8000,
+    flags: FeatureFlags | None = None,
+) -> FastMCP:
     """
-    Create and configure the FastMCP server with all Home Assistant tools registered.
+    Create and configure the FastMCP server with all permitted tools registered.
 
     Args:
         port: TCP port for SSE transport. Ignored in stdio mode.
+        flags: Feature gates controlling which tools are registered. Resolved
+               from the environment via load_flags() when omitted.
 
     Returns:
         Configured FastMCP server instance.
     """
+
+    flags = flags if flags is not None else load_flags()
 
     mcp = FastMCP(
         name="home-assistant",
@@ -103,28 +111,31 @@ def create_server(port: int = 8000) -> FastMCP:
         lifespan=app_lifespan,
         instructions=(
             "You are connected to a Home Assistant instance. "
-            "You can control smart home devices, manage automations, "
-            "dashboards, add-ons, view logs, check system health, "
-            "send notifications, manage input helpers and timers, "
-            "and inspect the device and integration registries. "
+            "You can inspect entities, automations, scripts, scenes, logs, "
+            "the integration registry, repairs issues, the running core "
+            "version, and validate configuration. "
+            "This server is read-only by default: control tools (state, "
+            "services, dashboards, automation triggers, notifications) are "
+            "only available when HA_READONLY=false, restart_core only when "
+            "HA_ENABLE_RESTART=true, and Supervisor tools (add-ons, updates, "
+            "backups) only when HA_ENABLE_SUPERVISOR=true. "
             "Use call_service for controlling physical devices. "
             "Use set_entity_state only for virtual/input entities. "
-            "Use the dedicated set_input_* tools for input helpers "
-            "instead of call_service. "
-            "Supervisor tools (add-ons, updates, backups) require "
-            "HA OS or Supervised installation."
+            "Supervisor tools require HA OS or a Supervised installation and "
+            "will fail on a Container install."
         ),
     )
 
-    entities.register(mcp)
-    dashboards.register(mcp)
-    addons.register(mcp)
-    logs.register(mcp)
-    automations.register(mcp)
-    system.register(mcp)
-    notifications.register(mcp)
-    helpers.register(mcp)
-    registry.register(mcp)
+    entities.register(mcp, flags)
+    dashboards.register(mcp, flags)
+    addons.register(mcp, flags)
+    logs.register(mcp, flags)
+    automations.register(mcp, flags)
+    system.register(mcp, flags)
+    notifications.register(mcp, flags)
+    helpers.register(mcp, flags)
+    registry.register(mcp, flags)
+    repairs.register(mcp, flags)
 
     return mcp
 

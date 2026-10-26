@@ -12,16 +12,21 @@ from typing import TYPE_CHECKING, Any
 from mcp.server.fastmcp import Context
 from mcp.types import ToolAnnotations
 
+from ha_mcp.tools.gating import DEFAULT_FLAGS, ToolKind, make_registrar
+
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
     from ha_mcp.client import HomeAssistantClient
+    from ha_mcp.config import FeatureFlags
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
     """Register all Lovelace dashboard tools on the MCP server."""
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    tool = make_registrar(mcp, flags)
+
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_dashboards(
         ctx: Context,
         instance: str = "",
@@ -45,7 +50,7 @@ def register(mcp: FastMCP) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.ws_command("lovelace/dashboards/list")
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_dashboard_config(
         ctx: Context,
         url_path: str | None = None,
@@ -76,7 +81,7 @@ def register(mcp: FastMCP) -> None:
             kwargs["url_path"] = url_path
         return await client.ws_command("lovelace/config", **kwargs)
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def create_dashboard(
         ctx: Context,
         url_path: str,
@@ -121,7 +126,7 @@ def register(mcp: FastMCP) -> None:
             kwargs["icon"] = icon
         return await client.ws_command("lovelace/dashboards/create", **kwargs)
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def update_dashboard_config(
         ctx: Context,
         config: dict[str, Any],
@@ -153,7 +158,7 @@ def register(mcp: FastMCP) -> None:
         await client.ws_command("lovelace/config/save", **kwargs)
         return "Dashboard configuration saved."
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def update_dashboard(
         ctx: Context,
         dashboard_id: str,
@@ -206,7 +211,7 @@ def register(mcp: FastMCP) -> None:
         )
         return f"Dashboard {dashboard_id!r} updated."
 
-    @mcp.tool(annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
     async def delete_dashboard(
         ctx: Context,
         dashboard_id: str,

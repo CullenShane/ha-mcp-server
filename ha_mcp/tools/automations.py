@@ -7,16 +7,21 @@ from typing import TYPE_CHECKING, Any
 from mcp.server.fastmcp import Context
 from mcp.types import ToolAnnotations
 
+from ha_mcp.tools.gating import DEFAULT_FLAGS, ToolKind, make_registrar
+
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
 
     from ha_mcp.client import HomeAssistantClient
+    from ha_mcp.config import FeatureFlags
 
 
-def register(mcp: FastMCP) -> None:
+def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
     """Register all automation and script tools on the MCP server."""
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    tool = make_registrar(mcp, flags)
+
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_automations(
         ctx: Context,
         instance: str = "",
@@ -39,7 +44,7 @@ def register(mcp: FastMCP) -> None:
         states: list[dict[str, Any]] = await client.get("/api/states")
         return [s for s in states if s["entity_id"].startswith("automation.")]
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def trigger_automation(
         ctx: Context,
         entity_id: str,
@@ -65,7 +70,7 @@ def register(mcp: FastMCP) -> None:
             {"entity_id": entity_id},
         )
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def enable_automation(
         ctx: Context,
         entity_id: str,
@@ -91,7 +96,7 @@ def register(mcp: FastMCP) -> None:
             {"entity_id": entity_id},
         )
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def disable_automation(
         ctx: Context,
         entity_id: str,
@@ -117,7 +122,7 @@ def register(mcp: FastMCP) -> None:
             {"entity_id": entity_id},
         )
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def reload_automations(
         ctx: Context,
         instance: str = "",
@@ -139,7 +144,7 @@ def register(mcp: FastMCP) -> None:
         result = await client.post("/api/services/automation/reload")
         return f"Automations reloaded. Affected states: {len(result)}"
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_scripts(
         ctx: Context,
         instance: str = "",
@@ -161,7 +166,7 @@ def register(mcp: FastMCP) -> None:
         states: list[dict[str, Any]] = await client.get("/api/states")
         return [s for s in states if s["entity_id"].startswith("script.")]
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def run_script(
         ctx: Context,
         entity_id: str,
@@ -190,7 +195,7 @@ def register(mcp: FastMCP) -> None:
 
         return await client.post("/api/services/script/turn_on", payload)
 
-    @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_scenes(
         ctx: Context,
         instance: str = "",
@@ -212,7 +217,7 @@ def register(mcp: FastMCP) -> None:
         states: list[dict[str, Any]] = await client.get("/api/states")
         return [s for s in states if s["entity_id"].startswith("scene.")]
 
-    @mcp.tool(annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.CORE_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def activate_scene(
         ctx: Context,
         entity_id: str,
