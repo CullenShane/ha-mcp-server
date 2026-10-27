@@ -21,7 +21,10 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
     tool = make_registrar(mcp, flags)
 
-    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.CORE_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def get_device_registry(
         ctx: Context,
         instance: str = "",
@@ -35,9 +38,9 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         config_entries the device belongs to. Use this to identify physical
         devices by manufacturer and model rather than by entity ID.
 
-        The HA REST API may return either a bare list or a dict with a devices
-        key depending on the HA version. This tool normalises both forms to a
-        plain list.
+        Uses the WebSocket `config/device_registry/list` command, as there is
+        no REST route for the device registry in HA 2026.x. The command returns
+        the device list directly.
 
         Args:
             ctx: MCP request context (injected by FastMCP).
@@ -50,16 +53,12 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
         state = ctx.request_context.lifespan_context
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
-        response: list[dict[str, Any]] | dict[str, Any] = await client.get(
-            "/api/config/device_registry/list"
-        )
-        return (
-            response.get("devices", response)
-            if isinstance(response, dict)
-            else response
-        )
+        return await client.ws_command("config/device_registry/list")
 
-    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.CORE_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def list_config_entries(
         ctx: Context,
         instance: str = "",
@@ -114,6 +113,4 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
         state = ctx.request_context.lifespan_context
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
-        return await client.post(
-            f"/api/config/config_entries/entry/{entry_id}/reload"
-        )
+        return await client.post(f"/api/config/config_entries/entry/{entry_id}/reload")

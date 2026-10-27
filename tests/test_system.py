@@ -31,18 +31,8 @@ _SUPERVISOR_DATA: dict[str, Any] = {
 }
 
 _USERS: list[dict[str, Any]] = [
-    {
-        "id": "abc123",
-        "name": "Admin",
-        "is_active": True,
-        "is_admin": True
-    },
-    {
-        "id": "def456",
-        "name": "User",
-        "is_active": True,
-        "is_admin": False
-    }
+    {"id": "abc123", "name": "Admin", "is_active": True, "is_admin": True},
+    {"id": "def456", "name": "User", "is_active": True, "is_admin": False},
 ]
 
 _BACKUPS: list[dict[str, Any]] = [
@@ -66,9 +56,7 @@ def tools() -> dict[str, Any]:
 
 
 async def test_get_ha_config(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """get_ha_config returns the HA configuration dict from /api/config."""
 
@@ -79,9 +67,7 @@ async def test_get_ha_config(
 
 
 async def test_check_config_valid(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     check_config returns the validation result dict when the configuration is
@@ -95,9 +81,7 @@ async def test_check_config_valid(
 
 
 async def test_check_config_invalid(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     check_config returns the validation result dict including errors when
@@ -114,9 +98,7 @@ async def test_check_config_invalid(
 
 
 async def test_restart_ha(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     restart_ha POSTs to the core restart endpoint and returns a confirmation
@@ -130,9 +112,7 @@ async def test_restart_ha(
 
 
 async def test_get_supervisor_info(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     get_supervisor_info returns the supervisor data dict from the nested
@@ -146,9 +126,7 @@ async def test_get_supervisor_info(
 
 
 async def test_get_supervisor_info_fallback(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """Falls back to full response when no 'data' key."""
 
@@ -158,9 +136,7 @@ async def test_get_supervisor_info_fallback(
 
 
 async def test_get_core_info(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """get_core_info returns the core data dict from the nested data key."""
 
@@ -171,9 +147,7 @@ async def test_get_core_info(
 
 
 async def test_get_host_info(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """get_host_info returns the host data dict from the nested data key."""
 
@@ -184,9 +158,7 @@ async def test_get_host_info(
 
 
 async def test_get_os_info(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """get_os_info returns the OS data dict from the nested data key."""
 
@@ -199,9 +171,7 @@ async def test_get_os_info(
 
 
 async def test_update_core(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     update_core POSTs to the core update endpoint and returns the result
@@ -215,9 +185,7 @@ async def test_update_core(
 
 
 async def test_update_supervisor(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     update_supervisor POSTs to the supervisor update endpoint and returns
@@ -231,9 +199,7 @@ async def test_update_supervisor(
 
 
 async def test_update_os(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     update_os POSTs to the OS update endpoint and returns the result
@@ -247,9 +213,7 @@ async def test_update_os(
 
 
 async def test_list_integrations(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     list_integrations returns all config entries from
@@ -263,11 +227,8 @@ async def test_list_integrations(
     mock_client.get.assert_called_once_with("/api/config/config_entries/entry")
 
 
-
 async def test_get_system_health(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     get_system_health returns the system health dict from
@@ -275,16 +236,14 @@ async def test_get_system_health(
     """
 
     health = {"homeassistant": {"info": {"version": "2024.1.0"}}}
-    mock_client.get.return_value = health
+    mock_client.ws_command.return_value = health
     result = await tools["get_system_health"](ctx=mock_ctx)
     assert "homeassistant" in result
-    mock_client.get.assert_called_once_with("/api/system_health")
+    mock_client.ws_command.assert_called_once_with("system_health/info")
 
 
 async def test_list_users(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     list_users returns all user records from /api/config/auth/users.
@@ -298,9 +257,7 @@ async def test_list_users(
 
 
 async def test_create_backup(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     create_backup POSTs to the full backup endpoint and returns the backup data
@@ -314,9 +271,7 @@ async def test_create_backup(
 
 
 async def test_create_backup_fallback(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """Falls back to full response when no 'data' key."""
 
@@ -326,9 +281,7 @@ async def test_create_backup_fallback(
 
 
 async def test_list_backups(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
     list_backups returns the backup list from the nested data.backups key.
@@ -341,9 +294,7 @@ async def test_list_backups(
 
 
 async def test_list_backups_empty(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """list_backups returns an empty list when no backups exist."""
 
@@ -353,9 +304,7 @@ async def test_list_backups_empty(
 
 
 async def test_get_ha_config_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """get_ha_config propagates HomeAssistantError on API failure."""
 
@@ -365,9 +314,7 @@ async def test_get_ha_config_error(
 
 
 async def test_check_config_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """check_config propagates HomeAssistantError on API failure."""
 
@@ -377,9 +324,7 @@ async def test_check_config_error(
 
 
 async def test_restart_ha_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """restart_ha propagates HomeAssistantError on API failure."""
 
@@ -389,9 +334,7 @@ async def test_restart_ha_error(
 
 
 async def test_get_supervisor_info_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """get_supervisor_info propagates HomeAssistantError on API failure."""
 
@@ -401,9 +344,7 @@ async def test_get_supervisor_info_error(
 
 
 async def test_get_core_info_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """get_core_info propagates HomeAssistantError on API failure."""
 
@@ -413,9 +354,7 @@ async def test_get_core_info_error(
 
 
 async def test_get_host_info_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """get_host_info propagates HomeAssistantError on API failure."""
 
@@ -425,9 +364,7 @@ async def test_get_host_info_error(
 
 
 async def test_get_os_info_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """get_os_info propagates HomeAssistantError on API failure."""
 
@@ -437,9 +374,7 @@ async def test_get_os_info_error(
 
 
 async def test_update_core_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """update_core propagates HomeAssistantError on API failure."""
 
@@ -449,9 +384,7 @@ async def test_update_core_error(
 
 
 async def test_update_supervisor_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """update_supervisor propagates HomeAssistantError on API failure."""
 
@@ -461,9 +394,7 @@ async def test_update_supervisor_error(
 
 
 async def test_update_os_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """update_os propagates HomeAssistantError on API failure."""
 
@@ -473,9 +404,7 @@ async def test_update_os_error(
 
 
 async def test_list_integrations_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """list_integrations propagates HomeAssistantError on API failure."""
 
@@ -484,23 +413,28 @@ async def test_list_integrations_error(
         await tools["list_integrations"](ctx=mock_ctx)
 
 
+async def test_get_system_health_null(
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
+) -> None:
+    """get_system_health returns None when there are no issues."""
+
+    mock_client.ws_command.return_value = None
+    result = await tools["get_system_health"](ctx=mock_ctx)
+    assert result is None
+
 
 async def test_get_system_health_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """get_system_health propagates HomeAssistantError on API failure."""
 
-    mock_client.get.side_effect = HomeAssistantError("api failure")
+    mock_client.ws_command.side_effect = HomeAssistantError("api failure")
     with pytest.raises(HomeAssistantError, match="api failure"):
         await tools["get_system_health"](ctx=mock_ctx)
 
 
 async def test_list_users_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """list_users propagates HomeAssistantError on API failure."""
 
@@ -510,9 +444,7 @@ async def test_list_users_error(
 
 
 async def test_create_backup_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """create_backup propagates HomeAssistantError on API failure."""
 
@@ -522,9 +454,7 @@ async def test_create_backup_error(
 
 
 async def test_list_backups_error(
-    tools: dict[str, Any],
-    mock_ctx: MagicMock,
-    mock_client: MagicMock
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """list_backups propagates HomeAssistantError on API failure."""
 

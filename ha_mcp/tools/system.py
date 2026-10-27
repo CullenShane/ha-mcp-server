@@ -23,7 +23,10 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
     tool = make_registrar(mcp, flags)
 
-    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.CORE_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def get_ha_config(
         ctx: Context,
         instance: str = "",
@@ -45,7 +48,10 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get("/api/config")
 
-    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.CORE_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def check_config(
         ctx: Context,
         instance: str = "",
@@ -68,7 +74,10 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.post("/api/config/core/check_config")
 
-    @tool(ToolKind.RESTART, annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.RESTART,
+        annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True),
+    )
     async def restart_ha(
         ctx: Context,
         instance: str = "",
@@ -90,7 +99,10 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         result = await client.post("/api/config/core/restart")
         return str(result)
 
-    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.HASSIO_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def get_supervisor_info(
         ctx: Context,
         instance: str = "",
@@ -118,7 +130,10 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("data", response)
 
-    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.HASSIO_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def get_core_info(
         ctx: Context,
         instance: str = "",
@@ -140,12 +155,13 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
         state = ctx.request_context.lifespan_context
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
-        response: dict[str, Any] = await client.get(
-            f"{_SUPERVISOR_PREFIX}/core/info"
-        )
+        response: dict[str, Any] = await client.get(f"{_SUPERVISOR_PREFIX}/core/info")
         return response.get("data", response)
 
-    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.HASSIO_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def get_host_info(
         ctx: Context,
         instance: str = "",
@@ -166,12 +182,13 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
         state = ctx.request_context.lifespan_context
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
-        response: dict[str, Any] = await client.get(
-            f"{_SUPERVISOR_PREFIX}/host/info"
-        )
+        response: dict[str, Any] = await client.get(f"{_SUPERVISOR_PREFIX}/host/info")
         return response.get("data", response)
 
-    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.HASSIO_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def get_os_info(
         ctx: Context,
         instance: str = "",
@@ -272,12 +289,13 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
         state = ctx.request_context.lifespan_context
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
-        response: dict[str, Any] = await client.post(
-            f"{_SUPERVISOR_PREFIX}/os/update"
-        )
+        response: dict[str, Any] = await client.post(f"{_SUPERVISOR_PREFIX}/os/update")
         return response.get("result", str(response))
 
-    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.CORE_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def list_integrations(
         ctx: Context,
         instance: str = "",
@@ -299,13 +317,20 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get("/api/config/config_entries/entry")
 
-    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.CORE_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def get_system_health(
         ctx: Context,
         instance: str = "",
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | None:
         """
         Get system health information for all components.
+
+        Queries the Home Assistant WebSocket `system_health/info` command, as
+        there is no REST route for health data in HA 2026.x. Returns the health
+        dict keyed by component domain.
 
         Args:
             ctx: MCP request context (injected by FastMCP).
@@ -314,13 +339,17 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
         Returns:
             Health data keyed by component domain with status and metadata.
+            Returns None when there are no issues.
         """
 
         state = ctx.request_context.lifespan_context
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
-        return await client.get("/api/system_health")
+        return await client.ws_command("system_health/info")
 
-    @tool(ToolKind.CORE_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.CORE_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def list_users(
         ctx: Context,
         instance: str = "",
@@ -367,7 +396,10 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("data", response)
 
-    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(
+        ToolKind.HASSIO_READ,
+        annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True),
+    )
     async def list_backups(
         ctx: Context,
         instance: str = "",
