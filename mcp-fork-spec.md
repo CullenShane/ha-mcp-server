@@ -16,7 +16,8 @@ We run HA as a **Container** install (plain Docker, no Supervisor) — this driv
 2. **Read-only by default.** Token is full-scope; every write tool is opt-in behind a flag.
 3. **Supervisor tools are opt-in, not deleted.** They hit `/api/hassio/*`, absent on Container.
    The write ops `HomeAssistantError` outright; the read ops may work. Gate the whole group
-   behind `HA_ENABLE_SUPERVISOR` (default off) and test the reads against our live instance
+   behind `HA_ENABLE_HASSIO` (default off on Container, on for `supervised`/`haos`) and test the
+   reads against our live instance
    before relying on them — nothing is removed from the fork.
 
 ## Configuration
@@ -30,7 +31,7 @@ Keep upstream's env-driven config, add three toggles:
 | `TRANSPORT` | `stdio` | `stdio` for local MCP client |
 | `HA_READONLY` | `true` | When true, register **no** write/destructive tools |
 | `HA_ENABLE_RESTART` | `false` | Exposes `restart_core` (write) only when explicitly true |
-| `HA_ENABLE_SUPERVISOR` | `false` | Registers Supervisor-backed tools (add-ons, OS/supervisor/core/host, backups). Reads may work on Container; writes fail. Default off. |
+| `HA_ENABLE_HASSIO` | *(from `HA_DEPLOYMENT`)* | Registers the Supervisor `/api/hassio/*` tools (add-ons, OS/supervisor/core/host, backups, logs). Off on `container`, on on `supervised`/`haos`. Legacy alias: `HA_ENABLE_SUPERVISOR`. |
 
 ### Token handling
 
@@ -40,7 +41,7 @@ Keep upstream's env-driven config, add three toggles:
   key in `jobs/home-assistant/README.md`; never print its value.
 - Token creation (human, one-time): HA profile → Security → Long-lived access tokens → Create.
 
-## Supervisor tools — gate behind `HA_ENABLE_SUPERVISOR` (default false)
+## Supervisor (`/api/hassio/*`) tools — gate behind `HA_ENABLE_HASSIO` (off on Container)
 
 These call `/api/hassio/*`, which a Container install does not expose. We do **not** delete
 them: the write ops `HomeAssistantError` outright, so keep them off by default, while the read
@@ -79,7 +80,8 @@ style (async, return parsed JSON, raise `HomeAssistantError` on non-2xx).
 
 ### 1. `get_repairs_issues`  — *the headline tool*
 
-- Endpoint: `GET /api/repairs/issues`
+- Endpoint: **WebSocket `repairs/list_issues`** (there is **no** REST `GET /api/repairs/issues` in
+  HA 2026.x; verified live). Returns `{"issues": [...]}`, empty `[]` when none.
 - Returns: list of open issues. Per item surface: `issue_id`, `domain`,
   `translation_key`, `severity`, **`breaks_in_ha_version`**, `entity_id` (if scoped),
   `data`.
@@ -108,7 +110,9 @@ style (async, return parsed JSON, raise `HomeAssistantError` on non-2xx).
 
 ### 4. `get_ha_log`
 
-- Endpoint: `GET /api/log` (HA's own `home-assistant.log`, richer than container stderr).
+- Endpoint: **WebSocket `system_log/list`** (admin; there is **no** REST `GET /api/log` in HA
+  2026.x; verified live). Returns structured entries `{name, message[], level, timestamp, count}`.
+  Richer than container stderr. (`/api/error_log` REST also works — used by `get_error_log`.)
 - Args: `tail: int = 100`, `min_level: Literal["DEBUG","INFO","WARNING","ERROR"] = "WARNING"`.
 - Returns: filtered log lines.
 - Skill use: §6 — detect "Failed migration", exceptions, integration setup failures
@@ -117,7 +121,9 @@ style (async, return parsed JSON, raise `HomeAssistantError` on non-2xx).
 
 ### 5. `validate_config`
 
-- Endpoint: `POST /api/config/check` (empty payload → validates current config).
+- Endpoint: `POST /api/config/core/check_config` (empty payload → validates current config).
+  (The spec's original `POST /api/config/check` does not exist in HA 2026.x; verified live.
+  This is the same route `check_config` uses.)
 - Returns: `{result: "valid" | "invalid", errors: [...]}`.
 - Skill use: pre-deploy gate the skill has today (optional, recommended before each cutover).
 
@@ -141,7 +147,7 @@ style (async, return parsed JSON, raise `HomeAssistantError` on non-2xx).
 | Input helpers (read) | 1 | keep |
 | Device registry | 1 | keep |
 | Write tools | ~25 | **0** (gated behind `HA_READONLY=false`) |
-| Supervisor tools | ~25 | gated behind `HA_ENABLE_SUPERVISOR` (reads may work; writes fail on Container) |
+| Supervisor (`/api/hassio/*`) tools | ~25 | gated behind `HA_ENABLE_HASSIO` (off on Container, on for `supervised`/`haos`) |
 
 ## Skill integration (what changes in `home-assistant-update`)
 
@@ -165,7 +171,7 @@ style (async, return parsed JSON, raise `HomeAssistantError` on non-2xx).
 ## Out of scope
 
 - Supervisor **writes** (add-on install/update, OS/supervisor/core updates, backups) — not used;
-  expected to `HomeAssistantError` on Container, gated off by `HA_ENABLE_SUPERVISOR`. Supervisor
+  expected to `HomeAssistantError` on Container, gated off by `HA_ENABLE_HASSIO`. Supervisor
   *reads* are kept behind that flag and tested on the live instance before the skill uses them.
 - Write/control features (state, services, dashboards, automations triggers) — available only
   if `HA_READONLY=false`, not used by the update skill.
@@ -176,3 +182,26 @@ style (async, return parsed JSON, raise `HomeAssistantError` on non-2xx).
   guaranteed automated signal — the skill's release-note triage remains the backstop.
 - The token grants full API access; default read-only + gated writes are mandatory, and the
   token must never appear in the repo.
+
+## Implementation notes (verified against the live Container instance, HA 2026.4.4)
+
+- **Container removes exactly one surface:** `/api/hassio/*` (HA gates `hassio` on the
+  `SUPERVISOR`/`SUPERVISOR_TOKEN` env vars; absent in Container). All Core-integration endpoints
+  work on Container. So the container gate is scoped precisely to `/api/hassio/*`
+  (`HA_ENABLE_HASSIO`, default off via `HA_DEPLOYMENT=container`).
+- **Several spec endpoints did not exist in HA 2026.x** (404 on REST / `unknown_command` on WS;
+  a permission problem would return 401/403/`unauthorized`, not 404). Implemented to the real
+  surface (verified live):
+  - Repairs: no REST list; use **WS `repairs/list_issues`** → `{"issues": [...]}` (empty `[]`
+    confirmed). Single issue: **WS `repairs/get_issue_data`** (`domain` + `issue_id`).
+  - Core log: no REST `/api/log`; use **WS `system_log/list`** (structured). REST `/api/error_log`
+    (used by `get_error_log`) works.
+  - Config validation: use **`POST /api/config/core/check_config`** (the spec's
+    `/api/config/check` does not exist).
+  - Upstream drift (not yet fixed): `get_system_health` → **WS `system_health/info`**,
+    `get_device_registry` → **WS `config/device_registry/list`**, `list_users` (no core list-users
+    REST). These are Core tools and should be ungated, only re-pointed.
+- **Verified tool surface by mode:** 32 (read-only default) · 57 (read-write) · 45
+  (read-only + `/api/hassio/*` reads) · 84 (all flags).
+- **Login notifications** during testing are HA's normal "new login" ban-logging for
+  long-lived-token/WS auth from the client host; benign. Revoke the test token when done.

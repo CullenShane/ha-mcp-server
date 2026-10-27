@@ -157,7 +157,8 @@ The server resolves configuration in this order:
 | `LOG_LEVEL` | no       | `WARNING` | Python logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 | `HA_READONLY` | no | `true` | When `true`, no write/destructive tools are registered (read-only mode) |
 | `HA_ENABLE_RESTART` | no | `false` | Exposes the HA Core restart tools (`restart_core`, `restart_ha`); requires `HA_READONLY=false` |
-| `HA_ENABLE_SUPERVISOR` | no | `false` | Registers Supervisor-backed tools (add-ons, OS/Supervisor/Core/host info, updates, backups, logs) |
+| `HA_ENABLE_HASSIO` | no | *(from `HA_DEPLOYMENT`)* | Registers the Supervisor `/api/hassio/*` tools (add-ons, OS/supervisor/core/host info, updates, backups, logs). Off on `container`, on on `supervised`/`haos`. `HA_ENABLE_SUPERVISOR` is a legacy alias |
+| `HA_DEPLOYMENT` | no | `container` | Deployment type: `container` (no Supervisor), `supervised`, `haos`. Sets the default for `HA_ENABLE_HASSIO` |
 
 \* Not required when `HA_CONFIG` is set or when a `ha-mcp.yaml` file is present in the working directory.
 
@@ -165,17 +166,18 @@ The server resolves configuration in this order:
 
 ## Read-only Mode & Feature Gating
 
-This fork is **read-only by default** and is intended to run against a Home Assistant **Container** install (plain Docker, no Supervisor). Behavior is controlled by three environment variables, parsed case-insensitively (`1`/`true`/`yes`/`on` = true, anything else = false):
+This fork is **read-only by default** and is intended to run against a Home Assistant **Container** install (plain Docker, no Supervisor). The only API surface a Container install removes is the Supervisor `/api/hassio/*` routes — every Core integration endpoint works there. Behavior is controlled by these environment variables, parsed case-insensitively (`1`/`true`/`yes`/`on` = true, anything else = false):
 
 - **`HA_READONLY`** (default `true`): when `true`, no write/destructive tools are registered — no `set_entity_state`, `call_service`, `fire_event`, dashboard create/update/delete, `trigger_automation`, `run_script`, `activate_scene`, `set_input_*`, `*_timer`, `reload_config_entry`, `send_notification`, or persistent-notification create/dismiss.
 - **`HA_ENABLE_RESTART`** (default `false`): exposes the HA Core restart tools (`restart_core`, `restart_ha`). Requires `HA_READONLY=false`.
-- **`HA_ENABLE_SUPERVISOR`** (default `false`): registers the Supervisor-backed tools (add-ons, OS/Supervisor/Core/host info, updates, backups, and Supervisor/Core/host/multicast logs). These call `/api/hassio/*`, which a Container install does not expose — read tools may work, but write tools (install/update/start/stop add-on, `update_core`/`update_supervisor`/`update_os`, `create_backup`) will fail.
+- **`HA_DEPLOYMENT`** (default `container`): `container` (no Supervisor), `supervised`, or `haos`. Sets the default for the next flag.
+- **`HA_ENABLE_HASSIO`** (default derived from `HA_DEPLOYMENT`): registers the Supervisor `/api/hassio/*` tools (add-ons, OS/supervisor/core/host info, updates, backups, and supervisor/core/host/multicast logs). These routes are absent on a Container install (HA gates them on the `SUPERVISOR`/`SUPERVISOR_TOKEN` env vars), so the default is `false` on `container` and `true` on `supervised`/`haos`. `HA_ENABLE_SUPERVISOR` is accepted as a legacy alias.
 
 **How the flags combine:**
 
 - Writes require `HA_READONLY=false`.
 - Restart tools require `HA_ENABLE_RESTART=true` (and `HA_READONLY=false`).
-- Supervisor tools require `HA_ENABLE_SUPERVISOR=true`; Supervisor write tools additionally require `HA_READONLY=false`.
+- The `/api/hassio/*` tools require `HA_ENABLE_HASSIO=true` (implied by `HA_DEPLOYMENT=supervised`/`haos`); their write tools additionally require `HA_READONLY=false`.
 
 **Tool counts by mode:**
 
@@ -183,7 +185,7 @@ This fork is **read-only by default** and is intended to run against a Home Assi
 |---|---|
 | Read-only (default) | 32 |
 | Read-write (`HA_READONLY=false`) | 57 |
-| Read-only + Supervisor reads (`HA_ENABLE_SUPERVISOR=true`) | 45 |
+| Read-only + Hass.io reads (`HA_ENABLE_HASSIO=true`) | 45 |
 | All flags on | 84 |
 
 ---
