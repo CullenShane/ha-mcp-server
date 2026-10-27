@@ -28,7 +28,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
     tool = make_registrar(mcp, flags)
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_addons(
         ctx: Context,
         instance: str = "",
@@ -55,7 +55,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         response: dict[str, Any] = await client.get(f"{_SUPERVISOR_PREFIX}/addons")
         return response.get("data", {}).get("addons", [])
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_addon_info(
         ctx: Context,
         addon_slug: str,
@@ -87,7 +87,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("data", response)
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def install_addon(
         ctx: Context,
         addon_slug: str,
@@ -115,7 +115,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("result", str(response))
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(destructiveHint=True, openWorldHint=True))
     async def uninstall_addon(
         ctx: Context,
         addon_slug: str,
@@ -143,7 +143,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("result", str(response))
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def update_addon(
         ctx: Context,
         addon_slug: str,
@@ -171,7 +171,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("result", str(response))
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def start_addon(
         ctx: Context,
         addon_slug: str,
@@ -199,7 +199,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("result", str(response))
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def stop_addon(
         ctx: Context,
         addon_slug: str,
@@ -227,7 +227,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("result", str(response))
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def restart_addon(
         ctx: Context,
         addon_slug: str,
@@ -255,7 +255,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("result", str(response))
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_addon_logs(
         ctx: Context,
         addon_slug: str,
@@ -282,7 +282,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get(f"{_SUPERVISOR_PREFIX}/addons/{addon_slug}/logs")
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def set_addon_options(
         ctx: Context,
         addon_slug: str,
@@ -316,7 +316,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("result", str(response))
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_addon_repositories(
         ctx: Context,
         instance: str = "",
@@ -342,7 +342,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("data", {}).get("repositories", [])
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def add_addon_repository(
         ctx: Context,
         repository_url: str,

@@ -90,7 +90,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         result = await client.post("/api/config/core/restart")
         return str(result)
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_supervisor_info(
         ctx: Context,
         instance: str = "",
@@ -118,7 +118,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("data", response)
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_core_info(
         ctx: Context,
         instance: str = "",
@@ -145,7 +145,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("data", response)
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_host_info(
         ctx: Context,
         instance: str = "",
@@ -171,7 +171,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("data", response)
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_os_info(
         ctx: Context,
         instance: str = "",
@@ -196,7 +196,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         response: dict[str, Any] = await client.get(f"{_SUPERVISOR_PREFIX}/os/info")
         return response.get("data", response)
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def update_core(
         ctx: Context,
         instance: str = "",
@@ -223,7 +223,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("result", str(response))
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def update_supervisor(
         ctx: Context,
         instance: str = "",
@@ -250,7 +250,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("result", str(response))
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def update_os(
         ctx: Context,
         instance: str = "",
@@ -341,7 +341,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get("/api/config/auth/users")
 
-    @tool(ToolKind.SUPERVISOR_WRITE, annotations=ToolAnnotations(openWorldHint=True))
+    @tool(ToolKind.HASSIO_WRITE, annotations=ToolAnnotations(openWorldHint=True))
     async def create_backup(
         ctx: Context,
         instance: str = "",
@@ -367,7 +367,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         )
         return response.get("data", response)
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def list_backups(
         ctx: Context,
         instance: str = "",

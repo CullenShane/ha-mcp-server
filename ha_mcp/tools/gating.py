@@ -13,9 +13,13 @@ Registration rules:
 - ``CORE_WRITE``: registered only when ``HA_READONLY=false``.
 - ``RESTART``: registered only when ``HA_ENABLE_RESTART=true`` **and**
   ``HA_READONLY=false``.
-- ``SUPERVISOR_READ``: registered only when ``HA_ENABLE_SUPERVISOR=true``.
-- ``SUPERVISOR_WRITE``: registered only when ``HA_ENABLE_SUPERVISOR=true``
-  **and** ``HA_READONLY=false``.
+- ``HASSIO_READ``: registered only when ``HA_ENABLE_HASSIO=true``.
+- ``HASSIO_WRITE``: registered only when ``HA_ENABLE_HASSIO=true`` **and**
+  ``HA_READONLY=false``.
+
+``HASSIO_*`` gates the /api/hassio/* Supervisor API (add-ons, OS/supervisor/
+core/host info, updates, backups, supervisor/core/host/multicast logs) —
+absent on a Container install, present on HA OS/Supervised.
 """
 
 from __future__ import annotations
@@ -41,8 +45,8 @@ class ToolKind(StrEnum):
     CORE_READ = "core_read"
     CORE_WRITE = "core_write"
     RESTART = "restart"
-    SUPERVISOR_READ = "supervisor_read"
-    SUPERVISOR_WRITE = "supervisor_write"
+    HASSIO_READ = "hassio_read"
+    HASSIO_WRITE = "hassio_write"
 
 
 # Permissive default used by the ``register(mcp)`` signature so that unit tests
@@ -51,7 +55,7 @@ class ToolKind(StrEnum):
 DEFAULT_FLAGS = FeatureFlags(
     readonly=False,
     enable_restart=True,
-    enable_supervisor=True,
+    enable_hassio=True,
 )
 
 
@@ -76,10 +80,10 @@ def allowed(kind: ToolKind, flags: FeatureFlags) -> bool:
         return not flags.readonly
     if kind is ToolKind.RESTART:
         return flags.enable_restart and not flags.readonly
-    if kind is ToolKind.SUPERVISOR_READ:
-        return flags.enable_supervisor
-    if kind is ToolKind.SUPERVISOR_WRITE:
-        return flags.enable_supervisor and not flags.readonly
+    if kind is ToolKind.HASSIO_READ:
+        return flags.enable_hassio
+    if kind is ToolKind.HASSIO_WRITE:
+        return flags.enable_hassio and not flags.readonly
     raise ValueError(f"Unknown ToolKind: {kind!r}")
 
 

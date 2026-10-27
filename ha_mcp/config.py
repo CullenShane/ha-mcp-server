@@ -23,11 +23,16 @@ class InstanceConfig:
 
 @dataclass
 class FeatureFlags:
-    """Feature gates controlling which tools the server registers."""
+    """
+    Feature gates controlling which tools the server registers.
+
+    The gates control the /api/hassio/* Supervisor surface (Hass.io) among
+    others: ``enable_hassio`` enables the Supervisor-backed tools.
+    """
 
     readonly: bool = True
     enable_restart: bool = False
-    enable_supervisor: bool = False
+    enable_hassio: bool = False
 
 
 @dataclass
@@ -64,20 +69,39 @@ def load_flags() -> FeatureFlags:
     """
     Resolve feature gates from the environment.
 
-    Reads HA_READONLY (default true), HA_ENABLE_RESTART (default false) and
-    HA_ENABLE_SUPERVISOR (default false). Read-only is the default: the server
-    registers no write/destructive tools unless HA_READONLY is explicitly set to
-    a falsy value. Supervisor tools are never registered unless
-    HA_ENABLE_SUPERVISOR is explicitly true.
+    Reads HA_READONLY (default true) and HA_ENABLE_RESTART (default false).
+    Read-only is the default: the server registers no write/destructive tools
+    unless HA_READONLY is explicitly set to a falsy value.
+
+    The /api/hassio/* Supervisor surface (Hass.io) is gated by HA_DEPLOYMENT
+    (default container -> hassio off). HA_ENABLE_HASSIO (legacy alias
+    HA_ENABLE_SUPERVISOR) overrides the deployment-derived default.
 
     Returns:
         A FeatureFlags instance reflecting the current environment.
     """
 
+    deployment = os.getenv("HA_DEPLOYMENT", "container").strip().lower()
+    hassio_default = deployment in {
+        "supervisor",
+        "supervised",
+        "haos",
+        "operating_system",
+        "operating-system",
+        "home_assistant_os",
+        "ios",
+    }
+    if os.getenv("HA_ENABLE_HASSIO") is not None:
+        enable_hassio = _env_bool("HA_ENABLE_HASSIO", hassio_default)
+    elif os.getenv("HA_ENABLE_SUPERVISOR") is not None:
+        enable_hassio = _env_bool("HA_ENABLE_SUPERVISOR", hassio_default)
+    else:
+        enable_hassio = hassio_default
+
     return FeatureFlags(
         readonly=_env_bool("HA_READONLY", True),
         enable_restart=_env_bool("HA_ENABLE_RESTART", False),
-        enable_supervisor=_env_bool("HA_ENABLE_SUPERVISOR", False),
+        enable_hassio=enable_hassio,
     )
 
 

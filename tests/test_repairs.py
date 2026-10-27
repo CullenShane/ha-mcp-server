@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -14,19 +15,9 @@ from ha_mcp.tools import repairs
 from tests.conftest import ToolCapture
 
 _ISSUES: list[dict[str, Any]] = [
-    {"issue_id": "i1", "domain": "hue", "severity": "warning"},
-    {
-        "issue_id": "i2",
-        "domain": "mqtt",
-        "severity": "error",
-        "dismissed_version": "2024.1",
-    },
-    {
-        "issue_id": "i3",
-        "domain": "mqtt",
-        "severity": "error",
-        "dismissed_version": None,
-    },
+    {"issue_id": "i1", "domain": "hue", "severity": "warning", "ignored": False},
+    {"issue_id": "i2", "domain": "mqtt", "severity": "error", "ignored": True},
+    {"issue_id": "i3", "domain": "mqtt", "severity": "error", "ignored": False},
 ]
 
 _CONFIG: dict[str, Any] = {"version": "2024.1.0", "location_name": "Home"}
@@ -62,18 +53,57 @@ _ENTRIES: list[dict[str, Any]] = [
     },
 ]
 
-_LOG: dict[str, Any] = {
-    "log_full": (
-        "DEBUG: start\n"
-        "INFO: info1\n"
-        "WARNING: warn1\n"
-        "ERROR: err1\n"
-        "INFO: info2\n"
-        "DEBUG: debug2\n"
-        "WARNING: warn2\n"
-        "ERROR: err2\n"
-    ),
-}
+_LOG_ENTRIES: list[dict[str, Any]] = [
+    {
+        "name": "core",
+        "message": ["start"],
+        "level": "DEBUG",
+        "timestamp": "t1",
+        "count": 1,
+    },
+    {
+        "name": "core",
+        "message": ["info1"],
+        "level": "INFO",
+        "timestamp": "t2",
+        "count": 1,
+    },
+    {
+        "name": "core",
+        "message": ["warn1"],
+        "level": "WARNING",
+        "timestamp": "t3",
+        "count": 1,
+    },
+    {
+        "name": "core",
+        "message": ["err1"],
+        "level": "ERROR",
+        "timestamp": "t4",
+        "count": 1,
+    },
+    {
+        "name": "core",
+        "message": ["info2"],
+        "level": "INFO",
+        "timestamp": "t5",
+        "count": 1,
+    },
+    {
+        "name": "core",
+        "message": ["warn2"],
+        "level": "WARNING",
+        "timestamp": "t6",
+        "count": 1,
+    },
+    {
+        "name": "core",
+        "message": ["err2"],
+        "level": "ERROR",
+        "timestamp": "t7",
+        "count": 1,
+    },
+]
 
 
 @pytest.fixture
@@ -89,26 +119,24 @@ async def test_get_repairs_issues_list(
     tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
-    get_repairs_issues returns a bare list and filters out issues with a
-    non-null dismissed_version by default.
+    get_repairs_issues returns a bare list and filters out ignored issues
+    by default.
     """
 
-    mock_client.get.return_value = _ISSUES
+    mock_client.ws_command.return_value = {"issues": _ISSUES}
     result = await tools["get_repairs_issues"](ctx=mock_ctx)
     assert result == [_ISSUES[0], _ISSUES[2]]
-    mock_client.get.assert_called_once_with("/api/repairs/issues")
+    mock_client.ws_command.assert_called_once_with("repairs/list_issues")
 
 
-async def test_get_repairs_issues_dict_form(
+async def test_get_repairs_issues_empty(
     tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
-    """
-    get_repairs_issues normalises a dict response by reading the issues key.
-    """
+    """get_repairs_issues returns an empty list when there are no issues."""
 
-    mock_client.get.return_value = {"issues": _ISSUES}
+    mock_client.ws_command.return_value = {"issues": []}
     result = await tools["get_repairs_issues"](ctx=mock_ctx)
-    assert result == [_ISSUES[0], _ISSUES[2]]
+    assert result == []
 
 
 async def test_get_repairs_issues_include_dismissed(
@@ -116,7 +144,7 @@ async def test_get_repairs_issues_include_dismissed(
 ) -> None:
     """get_repairs_issues returns all issues when include_dismissed is True."""
 
-    mock_client.get.return_value = _ISSUES
+    mock_client.ws_command.return_value = {"issues": _ISSUES}
     result = await tools["get_repairs_issues"](ctx=mock_ctx, include_dismissed=True)
     assert result == _ISSUES
 
@@ -125,24 +153,18 @@ async def test_get_repairs_issue_detail(
     tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
-    get_repairs_issue_detail returns the nested data dict from the issue
-    registry endpoint.
+    get_repairs_issue_detail returns the detail object from the
+    repairs/get_issue_data WebSocket command.
     """
 
-    mock_client.get.return_value = {"data": {"issue_id": "i1", "severity": "warning"}}
-    result = await tools["get_repairs_issue_detail"](ctx=mock_ctx, issue_id="i1")
+    mock_client.ws_command.return_value = {"issue_id": "i1", "severity": "warning"}
+    result = await tools["get_repairs_issue_detail"](
+        ctx=mock_ctx, domain="hue", issue_id="i1"
+    )
     assert result == {"issue_id": "i1", "severity": "warning"}
-    mock_client.get.assert_called_once_with("/api/repairs/issue_registry/i1")
-
-
-async def test_get_repairs_issue_detail_fallback(
-    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
-) -> None:
-    """get_repairs_issue_detail falls back to the full response when no data key."""
-
-    mock_client.get.return_value = {"issue_id": "i1", "severity": "warning"}
-    result = await tools["get_repairs_issue_detail"](ctx=mock_ctx, issue_id="i1")
-    assert result == {"issue_id": "i1", "severity": "warning"}
+    mock_client.ws_command.assert_called_once_with(
+        "repairs/get_issue_data", domain="hue", issue_id="i1"
+    )
 
 
 async def test_get_core_version(
@@ -192,65 +214,76 @@ async def test_get_ha_log_level_filter_and_tail(
     tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
     """
-    get_ha_log keeps lines at or above min_level and returns the last tail
-    matching lines.
+    get_ha_log keeps entries at or above min_level and returns the last tail
+    matching entries as JSON.
     """
 
-    mock_client.get.return_value = _LOG
+    mock_client.ws_command.return_value = _LOG_ENTRIES
     result = await tools["get_ha_log"](ctx=mock_ctx, tail=2)
-    assert result == "WARNING: warn2\nERROR: err2"
-    mock_client.get.assert_called_once_with("/api/log")
+    assert json.loads(result) == [
+        _LOG_ENTRIES[5],
+        _LOG_ENTRIES[6],
+    ]
+    mock_client.ws_command.assert_called_once_with("system_log/list")
+
+
+async def test_get_ha_log_min_level_filter(
+    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
+) -> None:
+    """get_ha_log keeps entries at or above min_level (default WARNING)."""
+
+    mock_client.ws_command.return_value = _LOG_ENTRIES
+    result = await tools["get_ha_log"](ctx=mock_ctx, tail=10)
+    assert json.loads(result) == [
+        _LOG_ENTRIES[2],
+        _LOG_ENTRIES[3],
+        _LOG_ENTRIES[5],
+        _LOG_ENTRIES[6],
+    ]
 
 
 async def test_get_ha_log_error_level(
     tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
-    """get_ha_log keeps only ERROR lines when min_level is ERROR."""
+    """get_ha_log keeps only ERROR and CRITICAL entries when min_level is ERROR."""
 
-    mock_client.get.return_value = _LOG
+    mock_client.ws_command.return_value = _LOG_ENTRIES
     result = await tools["get_ha_log"](ctx=mock_ctx, tail=10, min_level="ERROR")
-    assert result == "ERROR: err1\nERROR: err2"
+    assert json.loads(result) == [
+        _LOG_ENTRIES[3],
+        _LOG_ENTRIES[6],
+    ]
 
 
 async def test_get_ha_log_debug_keeps_all(
     tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
-    """get_ha_log keeps all lines when min_level is DEBUG."""
+    """get_ha_log keeps all entries when min_level is DEBUG."""
 
-    mock_client.get.return_value = _LOG
+    mock_client.ws_command.return_value = _LOG_ENTRIES
     result = await tools["get_ha_log"](ctx=mock_ctx, tail=3, min_level="DEBUG")
-    assert result == "DEBUG: debug2\nWARNING: warn2\nERROR: err2"
+    assert json.loads(result) == _LOG_ENTRIES[-3:]
 
 
-async def test_get_ha_log_log_small_fallback(
+async def test_get_ha_log_non_list_response(
     tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
-    """get_ha_log falls back to log_small when log_full is absent."""
+    """get_ha_log handles a non-list response by serialising it."""
 
-    mock_client.get.return_value = {"log_small": "WARNING: warn1\nERROR: err1\n"}
-    result = await tools["get_ha_log"](ctx=mock_ctx, tail=2)
-    assert result == "WARNING: warn1\nERROR: err1"
-
-
-async def test_get_ha_log_string_response(
-    tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
-) -> None:
-    """get_ha_log handles a plain string response."""
-
-    mock_client.get.return_value = "WARNING: warn1\nERROR: err1\n"
-    result = await tools["get_ha_log"](ctx=mock_ctx, tail=2)
-    assert result == "WARNING: warn1\nERROR: err1"
+    mock_client.ws_command.return_value = {"unexpected": "value"}
+    result = await tools["get_ha_log"](ctx=mock_ctx)
+    assert json.loads(result) == {"unexpected": "value"}
 
 
 async def test_validate_config(
     tools: dict[str, Any], mock_ctx: MagicMock, mock_client: MagicMock
 ) -> None:
-    """validate_config POSTs to /api/config/check and returns the result dict."""
+    """validate_config POSTs to /api/config/core/check_config and returns the result dict."""
 
     mock_client.post.return_value = {"result": "valid", "errors": []}
     result = await tools["validate_config"](ctx=mock_ctx)
     assert result == {"result": "valid", "errors": []}
-    mock_client.post.assert_called_once_with("/api/config/check")
+    mock_client.post.assert_called_once_with("/api/config/core/check_config")
 
 
 async def test_restart_core(
@@ -269,7 +302,7 @@ async def test_get_repairs_issues_error(
 ) -> None:
     """get_repairs_issues propagates HomeAssistantError on API failure."""
 
-    mock_client.get.side_effect = HomeAssistantError("api failure")
+    mock_client.ws_command.side_effect = HomeAssistantError("api failure")
     with pytest.raises(HomeAssistantError, match="api failure"):
         await tools["get_repairs_issues"](ctx=mock_ctx)
 
@@ -279,9 +312,11 @@ async def test_get_repairs_issue_detail_error(
 ) -> None:
     """get_repairs_issue_detail propagates HomeAssistantError on API failure."""
 
-    mock_client.get.side_effect = HomeAssistantError("api failure")
+    mock_client.ws_command.side_effect = HomeAssistantError("api failure")
     with pytest.raises(HomeAssistantError, match="api failure"):
-        await tools["get_repairs_issue_detail"](ctx=mock_ctx, issue_id="i1")
+        await tools["get_repairs_issue_detail"](
+            ctx=mock_ctx, domain="hue", issue_id="i1"
+        )
 
 
 async def test_get_core_version_error(
@@ -309,7 +344,7 @@ async def test_get_ha_log_error(
 ) -> None:
     """get_ha_log propagates HomeAssistantError on API failure."""
 
-    mock_client.get.side_effect = HomeAssistantError("api failure")
+    mock_client.ws_command.side_effect = HomeAssistantError("api failure")
     with pytest.raises(HomeAssistantError, match="api failure"):
         await tools["get_ha_log"](ctx=mock_ctx)
 

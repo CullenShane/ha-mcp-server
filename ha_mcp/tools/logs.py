@@ -44,7 +44,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get("/api/error_log")
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_supervisor_logs(
         ctx: Context,
         instance: str = "",
@@ -67,7 +67,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get(f"{_SUPERVISOR_PREFIX}/supervisor/logs")
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_core_logs(
         ctx: Context,
         instance: str = "",
@@ -90,7 +90,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get(f"{_SUPERVISOR_PREFIX}/core/logs")
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_host_logs(
         ctx: Context,
         instance: str = "",
@@ -113,7 +113,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
         return await client.get(f"{_SUPERVISOR_PREFIX}/host/logs")
 
-    @tool(ToolKind.SUPERVISOR_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
+    @tool(ToolKind.HASSIO_READ, annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=True))
     async def get_multicast_logs(
         ctx: Context,
         instance: str = "",

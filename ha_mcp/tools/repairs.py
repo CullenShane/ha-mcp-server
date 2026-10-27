@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from mcp.server.fastmcp import Context
@@ -15,8 +16,29 @@ if TYPE_CHECKING:
     from ha_mcp.client import HomeAssistantClient
     from ha_mcp.config import FeatureFlags
 
-# Log severity tokens in ascending order. Used by get_ha_log to filter lines.
-_LEVELS = ("DEBUG", "INFO", "WARNING", "ERROR")
+# Core log severity ranks in ascending order. Used by get_ha_log to filter
+# structured system_log/list entries.
+_LEVEL_RANK: dict[str, int] = {
+    "DEBUG": 0,
+    "INFO": 1,
+    "WARNING": 2,
+    "ERROR": 3,
+    "CRITICAL": 4,
+}
+
+
+def _level_rank(level: Any) -> int:
+    """
+    Return the severity rank for a log level token.
+
+    Args:
+        level: The level token (e.g. "WARNING").
+
+    Returns:
+        The severity rank (DEBUG=0 .. CRITICAL=4); unknown levels rank as 2.
+    """
+
+    return _LEVEL_RANK.get(str(level).upper(), 2)
 
 
 def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
@@ -36,12 +58,12 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         """
         List repair issues reported by Home Assistant.
 
-        Returns the repair issues from the HA repairs API. Each issue includes
-        issue_id, domain, translation_key, severity, breaks_in_ha_version,
-        entity_id, and data. The HA REST endpoint returns open issues; the
-        include_dismissed flag is accepted for forward-compatibility. When it is
-        False (the default), issues whose dismissed_version field is present and
-        non-null are filtered out; when True, all issues are returned.
+        Reads the repair issues via the WebSocket ``repairs/list_issues``
+        command, which returns ``{"issues": [...]}`` (empty -> ``{"issues":
+        []}``). Each issue includes issue_id, domain, translation_key,
+        severity, breaks_in_ha_version, and more. When ``include_dismissed``
+        is False (the default), issues whose ``ignored`` flag is True are
+        filtered out; when True, all issues are returned.
 
         Args:
             ctx: MCP request context (injected by FastMCP).
@@ -56,15 +78,12 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
         state = ctx.request_context.lifespan_context
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
-        response: dict[str, Any] | list[dict[str, Any]] = await client.get(
-            "/api/repairs/issues"
+        result = await client.ws_command("repairs/list_issues")
+        issues: list[dict[str, Any]] = (
+            result.get("issues", []) if isinstance(result, dict) else list(result)
         )
-        if isinstance(response, list):
-            issues: list[dict[str, Any]] = response
-        else:
-            issues = response.get("issues", [])
         if not include_dismissed:
-            issues = [i for i in issues if not i.get("dismissed_version")]
+            issues = [i for i in issues if i.get("ignored") is not True]
         return issues
 
     @tool(
@@ -73,14 +92,19 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
     )
     async def get_repairs_issue_detail(
         ctx: Context,
+        domain: str,
         issue_id: str,
         instance: str = "",
     ) -> dict[str, Any]:
         """
         Get the detail of a single repair issue.
 
+        Reads the single issue via the WebSocket ``repairs/get_issue_data``
+        command, using the issue's ``domain`` and ``issue_id``.
+
         Args:
             ctx: MCP request context (injected by FastMCP).
+            domain: The repair issue's domain.
             issue_id: The repair issue ID.
             instance: HA instance name from the config file. Uses the default
                       instance if omitted.
@@ -91,10 +115,10 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
         state = ctx.request_context.lifespan_context
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
-        response: dict[str, Any] = await client.get(
-            f"/api/repairs/issue_registry/{issue_id}"
+        result: dict[str, Any] = await client.ws_command(
+            "repairs/get_issue_data", domain=domain, issue_id=issue_id
         )
-        return response.get("data", response)
+        return result
 
     @tool(
         ToolKind.CORE_READ,
@@ -177,40 +201,35 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         instance: str = "",
     ) -> str:
         """
-        Get the Home Assistant log, filtered by severity level.
+        Get the Home Assistant core log, filtered by severity level.
 
-        Reads the HA log and returns the last ``tail`` lines at or above
-        ``min_level`` in severity (DEBUG < INFO < WARNING < ERROR). A line
-        matches if it contains the literal level token. When ``min_level`` is
-        DEBUG all lines are kept.
+        Reads the core log via the WebSocket ``system_log/list`` command,
+        which returns a list of structured entry dicts. Each entry has ``name``,
+        ``message``, ``level`` (DEBUG/INFO/WARNING/ERROR/CRITICAL),
+        ``timestamp``, and ``count``. Entries whose ``level`` rank is at or
+        above ``min_level`` are kept, and the last ``tail`` matching entries
+        are returned as a JSON string.
 
         Args:
             ctx: MCP request context (injected by FastMCP).
-            tail: Maximum number of matching lines to return.
+            tail: Maximum number of matching entries to return.
             min_level: Minimum severity level to keep (DEBUG, INFO, WARNING,
-                       or ERROR).
+                       ERROR, or CRITICAL).
             instance: HA instance name from the config file. Uses the default
                       instance if omitted.
 
         Returns:
-            The filtered log lines joined by newlines.
+            The filtered entries serialised as a JSON string.
         """
 
         state = ctx.request_context.lifespan_context
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
-        response = await client.get("/api/log")
-        if isinstance(response, dict):
-            text: str = response.get("log_full") or response.get("log_small") or ""
-        else:
-            text = str(response)
-        lines = text.splitlines()
-        level = min_level.upper()
-        if level == "DEBUG":
-            matching = lines
-        else:
-            tokens = _LEVELS[_LEVELS.index(level) :]
-            matching = [line for line in lines if any(tok in line for tok in tokens)]
-        return "\n".join(matching[-tail:])
+        entries = await client.ws_command("system_log/list")
+        if not isinstance(entries, list):
+            return json.dumps(entries) if isinstance(entries, dict) else str(entries)
+        min_rank = _level_rank(min_level)
+        kept = [e for e in entries if _level_rank(e.get("level")) >= min_rank]
+        return json.dumps(kept[-tail:])
 
     @tool(
         ToolKind.CORE_READ,
@@ -224,6 +243,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
         Validate the Home Assistant YAML configuration files.
 
         This is a non-mutating validation call, so it is classified as a read.
+        Uses the REST endpoint ``/api/config/core/check_config``.
 
         Args:
             ctx: MCP request context (injected by FastMCP).
@@ -237,7 +257,7 @@ def register(mcp: FastMCP, flags: FeatureFlags = DEFAULT_FLAGS) -> None:
 
         state = ctx.request_context.lifespan_context
         client: HomeAssistantClient = state.clients[instance or state.default_instance]
-        return await client.post("/api/config/check")
+        return await client.post("/api/config/core/check_config")
 
     @tool(
         ToolKind.RESTART,

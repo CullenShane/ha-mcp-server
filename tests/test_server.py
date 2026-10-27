@@ -154,7 +154,9 @@ def test_create_server_readonly_default(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setenv("HA_TOKEN", "test-token")
     monkeypatch.delenv("HA_READONLY", raising=False)
     monkeypatch.delenv("HA_ENABLE_RESTART", raising=False)
+    monkeypatch.delenv("HA_ENABLE_HASSIO", raising=False)
     monkeypatch.delenv("HA_ENABLE_SUPERVISOR", raising=False)
+    monkeypatch.delenv("HA_DEPLOYMENT", raising=False)
     server = create_server()
     assert isinstance(server, FastMCP)
     names = {t.name for t in server._tool_manager.list_tools()}
@@ -186,9 +188,9 @@ def test_create_server_readwrite_no_supervisor() -> None:
 
 
 def test_create_server_supervisor_reads_only() -> None:
-    """HA_ENABLE_SUPERVISOR with read-only registers supervisor reads, no writes."""
+    """HA_ENABLE_HASSIO with read-only registers supervisor reads, no writes."""
 
-    names = _tool_names(FeatureFlags(readonly=True, enable_supervisor=True))
+    names = _tool_names(FeatureFlags(readonly=True, enable_hassio=True))
     assert len(names) == 45
     assert "get_supervisor_info" in names
     assert "list_backups" in names
@@ -204,7 +206,7 @@ def test_create_server_all_enabled() -> None:
     """All flags on registers the full upstream surface plus the new fork tools."""
 
     names = _tool_names(
-        FeatureFlags(readonly=False, enable_restart=True, enable_supervisor=True)
+        FeatureFlags(readonly=False, enable_restart=True, enable_hassio=True)
     )
     assert len(names) == 84
     assert "restart_core" in names
@@ -250,16 +252,18 @@ def test_main_rejects_invalid_transport(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_load_flags_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    """load_flags defaults to read-only with restart and supervisor disabled."""
+    """load_flags defaults to read-only with restart and hassio disabled."""
 
     monkeypatch.delenv("HA_READONLY", raising=False)
     monkeypatch.delenv("HA_ENABLE_RESTART", raising=False)
+    monkeypatch.delenv("HA_ENABLE_HASSIO", raising=False)
     monkeypatch.delenv("HA_ENABLE_SUPERVISOR", raising=False)
+    monkeypatch.delenv("HA_DEPLOYMENT", raising=False)
     flags = load_flags()
     assert flags == FeatureFlags(
         readonly=True,
         enable_restart=False,
-        enable_supervisor=False,
+        enable_hassio=False,
     )
 
 
@@ -279,8 +283,40 @@ def test_load_flags_restart_truthy(monkeypatch: pytest.MonkeyPatch, value: str) 
     assert load_flags().enable_restart is True
 
 
-def test_load_flags_supervisor_truthy(monkeypatch: pytest.MonkeyPatch) -> None:
-    """HA_ENABLE_SUPERVISOR with a truthy token enables Supervisor tools."""
+def test_load_flags_hassio_truthy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """HA_ENABLE_HASSIO with a truthy token enables the Supervisor tools."""
 
-    monkeypatch.setenv("HA_ENABLE_SUPERVISOR", "yes")
-    assert load_flags().enable_supervisor is True
+    monkeypatch.setenv("HA_ENABLE_HASSIO", "yes")
+    assert load_flags().enable_hassio is True
+
+
+def test_load_flags_deployment_container_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HA_DEPLOYMENT unset defaults to container, leaving hassio disabled."""
+
+    monkeypatch.delenv("HA_ENABLE_HASSIO", raising=False)
+    monkeypatch.delenv("HA_ENABLE_SUPERVISOR", raising=False)
+    monkeypatch.delenv("HA_DEPLOYMENT", raising=False)
+    assert load_flags().enable_hassio is False
+
+
+def test_load_flags_deployment_supervisor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HA_DEPLOYMENT=supervised enables hassio by default."""
+
+    monkeypatch.delenv("HA_ENABLE_HASSIO", raising=False)
+    monkeypatch.delenv("HA_ENABLE_SUPERVISOR", raising=False)
+    monkeypatch.setenv("HA_DEPLOYMENT", "supervised")
+    assert load_flags().enable_hassio is True
+
+
+def test_load_flags_hassio_override_false(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HA_ENABLE_HASSIO=false overrides a supervisor deployment's default."""
+
+    monkeypatch.setenv("HA_DEPLOYMENT", "supervised")
+    monkeypatch.setenv("HA_ENABLE_HASSIO", "false")
+    assert load_flags().enable_hassio is False
