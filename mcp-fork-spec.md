@@ -198,9 +198,10 @@ style (async, return parsed JSON, raise `HomeAssistantError` on non-2xx).
     (used by `get_error_log`) works.
   - Config validation: use **`POST /api/config/core/check_config`** (the spec's
     `/api/config/check` does not exist).
-  - Upstream drift (not yet fixed): `get_system_health` → **WS `system_health/info`**,
-    `get_device_registry` → **WS `config/device_registry/list`**, `list_users` (no core list-users
-    REST). These are Core tools and should be ungated, only re-pointed.
+  - Upstream drift (fixed): `get_system_health` → **WS `system_health/info`** (returns `null` when
+    healthy), `get_device_registry` → **WS `config/device_registry/list`**.
+  - `list_users` has **no** core REST/WS list-users route in HA 2026.x → known limitation, left as
+    a Core-read that 404s on modern HA (documented, not silently rewritten).
 - **Verified tool surface by mode:** 32 (read-only default) · 57 (read-write) · 45
   (read-only + `/api/hassio/*` reads) · 84 (all flags).
 - **Login notifications** during testing are HA's normal "new login" ban-logging for
