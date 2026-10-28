@@ -51,7 +51,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for Hom
 | Input Helpers & Timers | Set input_boolean, input_number, input_select, input_text, input_datetime, and timer entities |
 | Device & Integration Registry | Browse device hardware info, list config entries, reload integrations |
 
-**77 tools** in total.
+**84 tools** in total (32 registered by default in read-only mode; see [Read-only Mode & Feature Gating](#read-only-mode--feature-gating) for the full breakdown).
 
 ---
 
@@ -480,7 +480,7 @@ After editing the config, restart Claude Code or run `/mcp` to reload servers.
 | `get_ha_config` | Get HA core configuration (version, location, units, etc.) |
 | `check_config` | Validate YAML configuration files |
 | `restart_ha` | Restart the Home Assistant Core process |
-| `restart_core` | Restart the HA Core process via the Core REST API. Requires `HA_ENABLE_RESTART=true` and `HA_READONLY=false` |
+| `restart_core` | Restart the HA Core process via the `homeassistant.restart` service. Requires `HA_ENABLE_RESTART=true` and `HA_READONLY=false` |
 | `get_supervisor_info` | Get Supervisor version and update status |
 | `get_core_info` | Get Core process info via Supervisor |
 | `get_host_info` | Get host OS info (CPU, memory, hostname) |
@@ -489,8 +489,8 @@ After editing the config, restart Claude Code or run `/mcp` to reload servers.
 | `update_supervisor` | Update the Supervisor |
 | `update_os` | Update the HA OS |
 | `list_integrations` | List all installed integration config entries |
-| `get_system_health` | Get health status for all components |
-| `list_users` | List all HA user accounts |
+| `get_system_health` | Get health status for all components. Returns `null` when there are no issues |
+| `list_users` | List all HA user accounts. Note: HA 2026.x has no REST/WS list-users route, so this tool will 404 on modern HA versions |
 | `create_backup` | Trigger a full system backup |
 | `list_backups` | List all available backups |
 
@@ -532,7 +532,7 @@ After editing the config, restart Claude Code or run `/mcp` to reload servers.
 
 Tools in the **Add-ons**, **Logs** (except `get_error_log`), and **System** (update/backup) categories use the Supervisor API (`/api/hassio/`). These are only available on:
 
-> These tools are registered only when `HA_ENABLE_SUPERVISOR=true` (write tools additionally require `HA_READONLY=false`).
+> These tools are registered only when `HA_ENABLE_HASSIO=true` (write tools additionally require `HA_READONLY=false`). `HA_ENABLE_SUPERVISOR` is accepted as a legacy alias.
 
 - **Home Assistant OS** (the recommended full installation on a dedicated device)
 - **Home Assistant Supervised** (manual installation on a generic Linux system)
